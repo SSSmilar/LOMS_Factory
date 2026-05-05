@@ -1,4 +1,4 @@
-module github.com/SSSmilar/LOMS_Factoryinventory
+module github.com/SSSmilar/LOMS_Factory/inventory
 
 go 1.26.0
 

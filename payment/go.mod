@@ -1,5 +1,5 @@
 
-module github.com/SSSmilar/LOMS_Factorypayment
+module github.com/SSSmilar/LOMS_Factory/payment
 
 go 1.26.0
 

@@ -1,5 +1,4 @@
-// TODO: Поменяй имя модуля github.com/SSSmilar/LOMS_Factory на своё и обнови все импорты
-module github.com/SSSmilar/LOMS_Factoryorder
+module github.com/SSSmilar/LOMS_Factory/order
 
 go 1.26.0
 
