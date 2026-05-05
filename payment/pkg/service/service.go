@@ -7,15 +7,15 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	paymentv1 "github.com/student/shared/pkg/proto/payment/v1"
+	paymentv1 "github.com/SSSmilar/LOMS_Factoryshared/pkg/proto/payment/v1"
 )
 
-// PaymentServer реализует gRPC сервис оплаты
+// PaymentServer реализует gRPC сервис оплаты .
 type PaymentServer struct {
 	paymentv1.UnimplementedPaymentServiceServer
 }
 
-// PayOrder обрабатывает оплату заказа
+// PayOrder обрабатывает оплату заказа .
 func (s *PaymentServer) PayOrder(
 	ctx context.Context,
 	req *paymentv1.PayOrderRequest,
