@@ -3,7 +3,7 @@ module github.com/SSSmilar/LOMS_Factory/inventory
 go 1.26.0
 
 require (
-	github.com/SSSmilar/LOMS_Factoryshared v0.0.0-00010101000000-000000000000
+	github.com/SSSmilar/LOMS_Factory/shared v0.0.0-00010101000000-000000000000
 	github.com/google/uuid v1.6.0
 	google.golang.org/grpc v1.79.3
 	google.golang.org/protobuf v1.36.11
@@ -17,4 +17,4 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260226221140-a57be14db171 // indirect
 )
 
-replace github.com/SSSmilar/LOMS_Factoryshared => ./../shared
+replace github.com/SSSmilar/LOMS_Factory/shared => ./../shared
