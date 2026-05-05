@@ -59,7 +59,7 @@ message GetPartResponse {
 }
 
 message ListPartsRequest {
-    PartType partTyper = 1 ; // Фильтр по типу (UNSPECIFIED = все детали)
+    PartType partType = 1 ; // Фильтр по типу (UNSPECIFIED = все детали)
     repeated string  uuids = 2 ;//Опционально: конкретные UUID (приоритет над part_type)
 }
 
