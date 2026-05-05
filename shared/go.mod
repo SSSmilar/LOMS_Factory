@@ -1,4 +1,4 @@
-module github.com/SSSmilar/LOMS_Factoryshared
+module github.com/SSSmilar/LOMS_Factory/shared
 
 go 1.26.0
 
