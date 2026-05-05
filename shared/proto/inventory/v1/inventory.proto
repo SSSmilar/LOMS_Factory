@@ -2,8 +2,8 @@ syntax = "proto3";
 
 package inventory.v1;
 
-// TODO: Заменить на актуальный go_package
-option go_package = "github.com/student/shared/pkg/proto/inventory/v1;inventoryv1";
+
+option go_package = "github.com/SSSmilar/LOMS_Factory/shared/pkg/proto/inventory/v1;inventoryv1";
 
 import "google/protobuf/timestamp.proto";
 
@@ -12,15 +12,17 @@ service InventoryService {
   // GetPart возвращает деталь по UUID
   rpc GetPart(GetPartRequest) returns (GetPartResponse);
 
-  // TODO: Добавить метод ListParts
+  rpc ListParts(ListPartsRequest) returns(ListPartsResponse);
 }
+
 
 // Тип детали
 enum PartType {
-  PART_TYPE_UNSPECIFIED = 0;
-  PART_TYPE_HULL = 1;
-  PART_TYPE_ENGINE = 2;
-  // TODO: Добавить остальные типы деталей из описания задания
+  PART_TYPE_UNSPECIFIED = 0;//Не указан
+  PART_TYPE_HULL = 1;//Корпус корабля
+  PART_TYPE_ENGINE = 2;//Двигатель
+  PART_TYPE_SHIELD = 3 ; // Защитный щит
+  PART_TYPE_WEAPON = 4 ; //Вооружение
 }
 
 // Part представляет деталь космического корабля
@@ -37,16 +39,30 @@ message Part {
   // Цена в копейках (5000₽ = 500000)
   int64 price = 4;
 
-  // TODO: Добавить остальные поля из описания задания
+  //Тип детали (enum)
+  PartType part_type = 5  ;
+
+  //Количество на складе
+  int64 stock_quantity = 6 ;
+
+  //Дата создания
+  google.protobuf.Timestamp created_at = 7 ;
 }
 
 // Запрос на получение детали по UUID
 message GetPartRequest {
-  string uuid = 1;
+  string uuid = 1; //Идентификатор детали
+}
+//Ответ на запрос о получение детали
+message GetPartResponse {
+  Part part  = 1 ;//    Информация о детали
 }
 
-// TODO: Реализовать GetPartResponse
+message ListPartsRequest {
+    PartType partTyper = 1 ; // Фильтр по типу (UNSPECIFIED = все детали)
+    repeated string  uuids = 2 ;//Опционально: конкретные UUID (приоритет над part_type)
+}
 
-// TODO: Реализовать ListPartsRequest
-
-// TODO: Реализовать ListPartsResponse
+message ListPartsResponse {
+    repeated Part parts = 1 ; //Список найденных деталей
+}
