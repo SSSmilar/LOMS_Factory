@@ -3,7 +3,10 @@ module github.com/student/payment
 
 go 1.26.0
 
-require google.golang.org/grpc v1.79.2
+require (
+	github.com/SSSmilar/LOMS_Factoryshared v0.0.0-00010101000000-000000000000
+	google.golang.org/grpc v1.79.3
+)
 
 require (
 	go.opentelemetry.io/otel v1.42.0 // indirect
