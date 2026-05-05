@@ -8,9 +8,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	orderHandler "github.com/student/order/pkg/handler"
-	inventoryv1 "github.com/student/shared/pkg/proto/inventory/v1"
-	paymentv1 "github.com/student/shared/pkg/proto/payment/v1"
+	orderHandler "github.com/SSSmilar/LOMS_Factory/order/pkg/handler"
+	inventoryv1 "github.com/SSSmilar/LOMS_Factory/shared/pkg/proto/inventory/v1"
+	paymentv1 "github.com/SSSmilar/LOMS_Factory/shared/pkg/proto/payment/v1"
 )
 
 const (
@@ -32,7 +32,13 @@ func main() {
 	}
 	defer inventoryConn.Close()
 
-	// TODO: Создать gRPC клиент PaymentService
+	paymentConn, err := grpc.NewClient(paymentServiceAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		slog.Error("не удалось подключиться к PaymentService", "error", err)
+		os.Exit(1)
+	}
+	defer paymentConn.Close()
 
 	// Создаём хранилище и обработчик
 	store := orderHandler.NewOrderStore()

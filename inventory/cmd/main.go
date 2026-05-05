@@ -8,8 +8,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	svc "github.com/student/inventory/pkg/service"
-	inventoryv1 "github.com/student/shared/pkg/proto/inventory/v1"
+	svc "github.com/SSSmilar/LOMS_Factoryinventory/pkg/service"
+	inventoryv1 "github.com/SSSmilar/LOMS_Factoryshared/pkg/proto/inventory/v1"
 )
 
 const grpcAddress = ":50051"

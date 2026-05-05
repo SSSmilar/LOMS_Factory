@@ -18,12 +18,12 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 
-	invSvc "github.com/student/inventory/pkg/service"
-	orderHandler "github.com/student/order/pkg/handler"
-	"github.com/student/order/tests/testutil"
-	paySvc "github.com/student/payment/pkg/service"
-	inventoryv1 "github.com/student/shared/pkg/proto/inventory/v1"
-	paymentv1 "github.com/student/shared/pkg/proto/payment/v1"
+	invSvc "github.com/SSSmilar/LOMS_Factoryinventory/pkg/service"
+	orderHandler "github.com/SSSmilar/LOMS_Factoryorder/pkg/handler"
+	"github.com/SSSmilar/LOMS_Factoryorder/tests/testutil"
+	paySvc "github.com/SSSmilar/LOMS_Factorypayment/pkg/service"
+	inventoryv1 "github.com/SSSmilar/LOMS_Factoryshared/pkg/proto/inventory/v1"
+	paymentv1 "github.com/SSSmilar/LOMS_Factoryshared/pkg/proto/payment/v1"
 )
 
 // Предзагруженные UUID и цены деталей (из inventory/cmd/main.go).
