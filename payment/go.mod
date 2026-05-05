@@ -1,5 +1,5 @@
-// TODO: Поменяй имя модуля github.com/student/week_1 на своё и обнови все импорты
-module github.com/student/payment
+
+module github.com/SSSmilar/LOMS_Factorypayment
 
 go 1.26.0
 
@@ -9,7 +9,6 @@ require (
 )
 
 require (
-	go.opentelemetry.io/otel v1.42.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.42.0 // indirect
 	golang.org/x/net v0.51.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
@@ -18,4 +17,4 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 )
 
-replace github.com/student/shared => ./../shared
+replace github.com/SSSmilar/LOMS_Factoryshared => ./../shared

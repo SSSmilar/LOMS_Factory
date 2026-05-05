@@ -1,16 +1,15 @@
-// TODO: Поменяй имя модуля github.com/student на своё и обнови все импорты
-module github.com/student/inventory
+module github.com/SSSmilar/LOMS_Factoryinventory
 
 go 1.26.0
 
 require (
+	github.com/SSSmilar/LOMS_Factoryshared v0.0.0-00010101000000-000000000000
 	github.com/google/uuid v1.6.0
 	google.golang.org/grpc v1.79.3
 	google.golang.org/protobuf v1.36.11
 )
 
 require (
-	go.opentelemetry.io/otel v1.42.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.42.0 // indirect
 	golang.org/x/net v0.51.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
@@ -18,4 +17,4 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260226221140-a57be14db171 // indirect
 )
 
-replace github.com/student/shared => ./../shared
+replace github.com/SSSmilar/LOMS_Factoryshared => ./../shared

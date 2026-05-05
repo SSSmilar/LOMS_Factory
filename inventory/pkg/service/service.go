@@ -8,10 +8,10 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	inventoryv1 "github.com/student/shared/pkg/proto/inventory/v1"
+	inventoryv1 "github.com/SSSmilar/LOMS_Factoryshared/pkg/proto/inventory/v1"
 )
 
-// Part представляет деталь космического корабля
+// Part представляет деталь космического корабля .
 type Part struct {
 	UUID          string
 	Name          string
@@ -22,13 +22,13 @@ type Part struct {
 	CreatedAt     *timestamppb.Timestamp
 }
 
-// InventoryServer реализует gRPC сервис
+// InventoryServer реализует gRPC сервис .
 type InventoryServer struct {
 	inventoryv1.UnimplementedInventoryServiceServer
 	parts map[uuid.UUID]Part
 }
 
-// NewInventoryServer создаёт сервер с предзагруженными seed-данными
+// NewInventoryServer создаёт сервер с предзагруженными seed-данными .
 func NewInventoryServer() *InventoryServer {
 	now := timestamppb.Now()
 
@@ -101,7 +101,7 @@ func NewInventoryServer() *InventoryServer {
 	}
 }
 
-// GetPart возвращает деталь по UUID
+// GetPart возвращает деталь по UUID .
 func (s *InventoryServer) GetPart(
 	ctx context.Context,
 	req *inventoryv1.GetPartRequest,
@@ -123,7 +123,7 @@ func (s *InventoryServer) GetPart(
 	return nil, status.Error(codes.Unimplemented, "метод GetPart не реализован")
 }
 
-// ListParts возвращает список деталей с опциональной фильтрацией по типу
+// ListParts возвращает список деталей с опциональной фильтрацией по типу .
 func (s *InventoryServer) ListParts(
 	ctx context.Context,
 	req *inventoryv1.ListPartsRequest,
