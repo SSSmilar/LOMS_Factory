@@ -32,13 +32,13 @@ func main() {
 	}
 	defer inventoryConn.Close()
 
-	paymentConn, err := grpc.NewClient(inventoryServiceAddress,
+	paymentConn, err := grpc.NewClient(paymentServiceAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		slog.Error("не удалось подключиться к PaymentService", "error", err)
 		os.Exit(1)
 	}
-	defer inventoryConn.Close()
+	defer paymentConn.Close()
 
 	// Создаём хранилище и обработчик
 	store := orderHandler.NewOrderStore()
