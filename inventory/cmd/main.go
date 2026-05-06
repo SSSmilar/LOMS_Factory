@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"google.golang.org/grpc"
@@ -42,12 +44,12 @@ func main() {
 
 	slog.Info("запуск InventoryService", "адрес", grpcAddress)
 
-	// TODO: Реализовать graceful shutdown
-	// При получении сигнала SIGINT/SIGTERM сервер должен:
-	// 1. Перестать принимать новые соединения
-	// 2. Дождаться завершения текущих запросов
-	// 3. Корректно завершить работу
-	// Подсказка: используйте signal.Notify и grpcServer.GracefulStop()
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	slog.Info("остановка gRPC сервера")
+	<-quit
+	grpcServer.GracefulStop()
+	slog.Info("сервер остановлен")
 
 	err = grpcServer.Serve(lis)
 	if err != nil {
