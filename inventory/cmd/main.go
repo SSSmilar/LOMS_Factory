@@ -4,8 +4,10 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"time"
 
 	"google.golang.org/grpc"
+	keepalive "google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 
 	svc "github.com/SSSmilar/LOMS_Factory/inventory/pkg/service"
@@ -20,11 +22,19 @@ func main() {
 		slog.Error("не удалось создать listener", "error", err)
 		os.Exit(1)
 	}
+	kasp := keepalive.ServerParameters{
+		MaxConnectionIdle:     15 * time.Minute,
+		MaxConnectionAge:      1 * time.Hour,
+		MaxConnectionAgeGrace: 30 * time.Second,
+		Time:                  45 * time.Second,
+		Timeout:               30 * time.Second,
+	}
+	kaep := keepalive.EnforcementPolicy{
+		MinTime:             15 * time.Second,
+		PermitWithoutStream: true,
+	}
 
-	// TODO: Настроить gRPC сервер с параметрами keepalive
-	// Подумайте, какие параметры стоит задать для production-ready сервера
-	// См. examples/week_1/GRPC_CONNECTIONS.md
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.KeepaliveParams(kasp), grpc.KeepaliveEnforcementPolicy(kaep))
 	inventoryv1.RegisterInventoryServiceServer(grpcServer, svc.NewInventoryServer())
 
 	// Включаем reflection для postman/grpcurl
