@@ -150,23 +150,26 @@ func (s *InventoryServer) GetPart(
 			slog.String("filed", "uuid"),
 			slog.String("reason", "invalid formate"),
 		)
+		return nil, sb.Err()
 	}
-
-	// TODO: Реализовать метод
-	//  -1. Проверить, что uuid не пустой → INVALID_ARGUMENT
-	//  -2. Валидировать формат UUID → INVALID_ARGUMENT
-	// 3. Найти деталь в map
-	// 4. Если не найдена → NOT_FOUND
-	// 5. Преобразовать в inventoryv1.Part
-	// 6. Вернуть деталь
-
-	// TODO: Валидация формата UUID v4
-	// Можно использовать github.com/google/uuid:
-	// if _, err := uuid.Parse(req.GetUuid()); err != nil {
-	//     return nil, status.Errorf(codes.InvalidArgument, "неверный формат uuid: %s", req.GetUuid())
-	// }
-
-	return nil, status.Error(codes.Unimplemented, "метод GetPart не реализован")
+	part, ok := s.parts[number]
+	if !ok {
+		slog.Warn("part not found",
+			slog.String("method", "GetPart"),
+			slog.String("field", "uuid"),
+			slog.String("reason", "not found"))
+		return nil, status.Error(codes.NotFound, "NOT_FOUND")
+	}
+	result := &inventoryv1.Part{
+		Uuid:          part.UUID,
+		Name:          part.Name,
+		Description:   part.Description,
+		Price:         part.Price,
+		PartType:      part.PartType,
+		StockQuantity: part.StockQuantity,
+		CreatedAt:     part.CreatedAt,
+	}
+	return &inventoryv1.GetPartResponse{Part: result}, nil
 }
 
 // ListParts возвращает список деталей с опциональной фильтрацией по типу .
