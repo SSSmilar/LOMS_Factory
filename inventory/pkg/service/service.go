@@ -126,7 +126,7 @@ func (s *InventoryServer) GetPart(
 			FieldViolations: []*errdetails.BadRequest_FieldViolation{
 				{
 					Field:       "uuid",
-					Description: "invalid uuid: is required and cannot be empty ",
+					Description: "uuid is required and cannot be empty",
 				},
 			},
 		}
