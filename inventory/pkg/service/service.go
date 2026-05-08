@@ -125,18 +125,19 @@ func (s *InventoryServer) GetPart(
 		}
 		slog.Warn("validation failed",
 			slog.String("method", "GetPart"),
-			slog.String("filed", "uuid"),
+			slog.String("field", "uuid"),
 			slog.String("reason", "empty"),
 		)
 		return nil, sb.Err()
 	}
-	if _, err := uuid.Parse(req.GetUuid()); err != nil {
+	number, err := uuid.Parse(req.GetUuid())
+	if err != nil {
 		sb := status.New(codes.InvalidArgument, "INVALID_ARGUMENT")
 		w := &errdetails.BadRequest{
 			FieldViolations: []*errdetails.BadRequest_FieldViolation{
 				{
 					Field:       "uuid",
-					Description: "invalid uuid: they hand over invalid formate",
+					Description: "invalid uuid: they hand over invalid format",
 				},
 			},
 		}
