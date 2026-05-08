@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/google/uuid"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -106,6 +108,28 @@ func (s *InventoryServer) GetPart(
 	ctx context.Context,
 	req *inventoryv1.GetPartRequest,
 ) (*inventoryv1.GetPartResponse, error) {
+	if req.GetUuid() == "" {
+		sb := status.New(codes.InvalidArgument, "INVALID_ARGUMENT")
+
+		w := &errdetails.BadRequest{
+			FieldViolations: []*errdetails.BadRequest_FieldViolation{
+				{
+					Field:       "uuid",
+					Description: "invalid uuid: is required and cannot be empty ",
+				},
+			},
+		}
+		sb, err := sb.WithDetails(w)
+		if err != nil {
+			return nil, status.Error(codes.Internal, "Internal error:")
+		}
+		slog.Warn("validation failed",
+			slog.String("method", "GetPart"),
+			slog.String("filed", "uuid"),
+			slog.String("reason" ,  "empty"),
+		)
+		return nil , sb.Err()
+	}
 	// TODO: Реализовать метод
 	// 1. Проверить, что uuid не пустой → INVALID_ARGUMENT
 	// 2. Валидировать формат UUID → INVALID_ARGUMENT
