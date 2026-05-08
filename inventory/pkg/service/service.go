@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"log/slog"
+	"sort"
 
 	"github.com/google/uuid"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
@@ -102,7 +103,17 @@ func NewInventoryServer() *InventoryServer {
 		},
 	}
 }
-
+func mapPartToProto(part Part) *inventoryv1.Part {
+	return &inventoryv1.Part{
+		Uuid:          part.UUID,
+		Name:          part.Name,
+		Description:   part.Description,
+		Price:         part.Price,
+		PartType:      part.PartType,
+		StockQuantity: part.StockQuantity,
+		CreatedAt:     part.CreatedAt,
+	}
+}
 // GetPart возвращает деталь по UUID .
 func (s *InventoryServer) GetPart(
 	ctx context.Context,
@@ -160,16 +171,8 @@ func (s *InventoryServer) GetPart(
 			slog.String("reason", "not found"))
 		return nil, status.Error(codes.NotFound, "NOT_FOUND")
 	}
-	result := &inventoryv1.Part{
-		Uuid:          part.UUID,
-		Name:          part.Name,
-		Description:   part.Description,
-		Price:         part.Price,
-		PartType:      part.PartType,
-		StockQuantity: part.StockQuantity,
-		CreatedAt:     part.CreatedAt,
-	}
-	return &inventoryv1.GetPartResponse{Part: result}, nil
+
+	return &inventoryv1.GetPartResponse{Part: mapPartToProto(part)}, nil
 }
 
 // ListParts возвращает список деталей с опциональной фильтрацией по типу .
@@ -177,8 +180,8 @@ func (s *InventoryServer) ListParts(
 	ctx context.Context,
 	req *inventoryv1.ListPartsRequest,
 ) (*inventoryv1.ListPartsResponse, error) {
+	result := make([]*inventoryv1.Part, 0)
 	if len(req.GetUuids()) > 0 {
-		result := make([]*inventoryv1.Part, 0)
 		for _, i := range req.GetUuids() {
 			idStr, err := uuid.Parse(i)
 			if err != nil {
@@ -198,11 +201,11 @@ func (s *InventoryServer) ListParts(
 				slog.Warn("validation failed",
 					slog.String("method", "ListParts"),
 					slog.String("field", "uuid"),
-					slog.String("reason", "invalid formate"),
+					slog.String("reason", "invalid format"),
 				)
 				return nil, sb.Err()
 			}
-			part, ok := s.parts[idStr] 
+			part, ok := s.parts[idStr]
 			if !ok {
 				slog.Warn("part not found",
 					slog.String("method", "ListParts"),
@@ -210,26 +213,18 @@ func (s *InventoryServer) ListParts(
 					slog.String("reason", "not found"))
 				return nil, status.Error(codes.NotFound, "NOT_FOUND")
 			}
-			result = append(result, &inventoryv1.Part{
-				Uuid:          part.UUID,
-				Name:          part.Name,
-				Description:   part.Description,
-				Price:         part.Price,
-				PartType:      part.PartType,
-				StockQuantity: part.StockQuantity,
-				CreatedAt:     part.CreatedAt,
-			})
+			result = append(result, mapPartToProto(part))
 		}
 		return &inventoryv1.ListPartsResponse{Parts: result}, nil
 	}
-
-	// TODO: Реализовать метод
-	// 1. Если передан список uuids → найти детали по UUID (сохраняя порядок запроса)
-	//    - Проверить формат каждого UUID → INVALID_ARGUMENT
-	//    - Если хоть один UUID не найден → NOT_FOUND
-	// 2. Иначе если part_type == UNSPECIFIED → вернуть все детали
-	// 3. Иначе → фильтровать по типу
-	// 4. Отсортировать по имени (только для фильтрации по типу, не для uuids)
-
-	return nil, status.Error(codes.Unimplemented, "метод ListParts не реализован")
+	for _, part := range s.parts {
+		targetType := req.GetPartType()
+		if targetType == inventoryv1.PartType_PART_TYPE_UNSPECIFIED || part.PartType == targetType {
+			result = append(result, mapPartToProto(part))
+		}
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Name < result[j].Name
+	})
+	return &inventoryv1.ListPartsResponse{Parts: result}, nil
 }
