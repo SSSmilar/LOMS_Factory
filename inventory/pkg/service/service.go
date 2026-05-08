@@ -147,7 +147,7 @@ func (s *InventoryServer) GetPart(
 		}
 		slog.Warn("validation failed",
 			slog.String("method", "GetPart"),
-			slog.String("filed", "uuid"),
+			slog.String("field", "uuid"),
 			slog.String("reason", "invalid formate"),
 		)
 		return nil, sb.Err()
@@ -177,6 +177,52 @@ func (s *InventoryServer) ListParts(
 	ctx context.Context,
 	req *inventoryv1.ListPartsRequest,
 ) (*inventoryv1.ListPartsResponse, error) {
+	if len(req.GetUuids()) > 0 {
+		result := make([]*inventoryv1.Part, 0)
+		for _, i := range req.GetUuids() {
+			idStr, err := uuid.Parse(i)
+			if err != nil {
+				sb := status.New(codes.InvalidArgument, "INVALID_ARGUMENT")
+				w := &errdetails.BadRequest{
+					FieldViolations: []*errdetails.BadRequest_FieldViolation{
+						{
+							Field:       "uuids",
+							Description: "invalid uuid: they hand over invalid format",
+						},
+					},
+				}
+				sb, err := sb.WithDetails(w)
+				if err != nil {
+					return nil, status.Error(codes.Internal, "Internal error:")
+				}
+				slog.Warn("validation failed",
+					slog.String("method", "ListParts"),
+					slog.String("field", "uuid"),
+					slog.String("reason", "invalid formate"),
+				)
+				return nil, sb.Err()
+			}
+			part, ok := s.parts[idStr] 
+			if !ok {
+				slog.Warn("part not found",
+					slog.String("method", "ListParts"),
+					slog.String("field", "uuid"),
+					slog.String("reason", "not found"))
+				return nil, status.Error(codes.NotFound, "NOT_FOUND")
+			}
+			result = append(result, &inventoryv1.Part{
+				Uuid:          part.UUID,
+				Name:          part.Name,
+				Description:   part.Description,
+				Price:         part.Price,
+				PartType:      part.PartType,
+				StockQuantity: part.StockQuantity,
+				CreatedAt:     part.CreatedAt,
+			})
+		}
+		return &inventoryv1.ListPartsResponse{Parts: result}, nil
+	}
+
 	// TODO: Реализовать метод
 	// 1. Если передан список uuids → найти детали по UUID (сохраняя порядок запроса)
 	//    - Проверить формат каждого UUID → INVALID_ARGUMENT
