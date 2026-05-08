@@ -196,7 +196,12 @@ func (s *InventoryServer) ListParts(
 				}
 				sb, err := sb.WithDetails(w)
 				if err != nil {
-					return nil, status.Error(codes.Internal, "Internal error:")
+					slog.Error("failed to attach error details",
+						slog.String("method", "ListParts"),
+						slog.String("operation", "WithDetails"),
+						slog.Any("error", err),
+					)
+					return nil, status.Errorf(codes.Internal, "internal error attaching details: %v", err)
 				}
 				slog.Warn("validation failed",
 					slog.String("method", "ListParts"),
