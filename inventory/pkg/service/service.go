@@ -126,13 +126,34 @@ func (s *InventoryServer) GetPart(
 		slog.Warn("validation failed",
 			slog.String("method", "GetPart"),
 			slog.String("filed", "uuid"),
-			slog.String("reason" ,  "empty"),
+			slog.String("reason", "empty"),
 		)
-		return nil , sb.Err()
+		return nil, sb.Err()
 	}
+	if _, err := uuid.Parse(req.GetUuid()); err != nil {
+		sb := status.New(codes.InvalidArgument, "INVALID_ARGUMENT")
+		w := &errdetails.BadRequest{
+			FieldViolations: []*errdetails.BadRequest_FieldViolation{
+				{
+					Field:       "uuid",
+					Description: "invalid uuid: they hand over invalid formate",
+				},
+			},
+		}
+		sb, err := sb.WithDetails(w)
+		if err != nil {
+			return nil, status.Error(codes.Internal, "Internal error:")
+		}
+		slog.Warn("validation failed",
+			slog.String("method", "GetPart"),
+			slog.String("filed", "uuid"),
+			slog.String("reason", "invalid formate"),
+		)
+	}
+
 	// TODO: Реализовать метод
-	// 1. Проверить, что uuid не пустой → INVALID_ARGUMENT
-	// 2. Валидировать формат UUID → INVALID_ARGUMENT
+	//  -1. Проверить, что uuid не пустой → INVALID_ARGUMENT
+	//  -2. Валидировать формат UUID → INVALID_ARGUMENT
 	// 3. Найти деталь в map
 	// 4. Если не найдена → NOT_FOUND
 	// 5. Преобразовать в inventoryv1.Part
