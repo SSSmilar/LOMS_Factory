@@ -2,8 +2,11 @@ package service
 
 import (
 	"context"
+	"log/slog"
+	"sort"
 
 	"github.com/google/uuid"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -100,27 +103,76 @@ func NewInventoryServer() *InventoryServer {
 		},
 	}
 }
-
+func mapPartToProto(part Part) *inventoryv1.Part {
+	return &inventoryv1.Part{
+		Uuid:          part.UUID,
+		Name:          part.Name,
+		Description:   part.Description,
+		Price:         part.Price,
+		PartType:      part.PartType,
+		StockQuantity: part.StockQuantity,
+		CreatedAt:     part.CreatedAt,
+	}
+}
 // GetPart возвращает деталь по UUID .
 func (s *InventoryServer) GetPart(
 	ctx context.Context,
 	req *inventoryv1.GetPartRequest,
 ) (*inventoryv1.GetPartResponse, error) {
-	// TODO: Реализовать метод
-	// 1. Проверить, что uuid не пустой → INVALID_ARGUMENT
-	// 2. Валидировать формат UUID → INVALID_ARGUMENT
-	// 3. Найти деталь в map
-	// 4. Если не найдена → NOT_FOUND
-	// 5. Преобразовать в inventoryv1.Part
-	// 6. Вернуть деталь
+	if req.GetUuid() == "" {
+		sb := status.New(codes.InvalidArgument, "INVALID_ARGUMENT")
 
-	// TODO: Валидация формата UUID v4
-	// Можно использовать github.com/google/uuid:
-	// if _, err := uuid.Parse(req.GetUuid()); err != nil {
-	//     return nil, status.Errorf(codes.InvalidArgument, "неверный формат uuid: %s", req.GetUuid())
-	// }
+		w := &errdetails.BadRequest{
+			FieldViolations: []*errdetails.BadRequest_FieldViolation{
+				{
+					Field:       "uuid",
+					Description: "uuid is required and cannot be empty",
+				},
+			},
+		}
+		sb, err := sb.WithDetails(w)
+		if err != nil {
+			return nil, status.Error(codes.Internal, "Internal error:")
+		}
+		slog.Warn("validation failed",
+			slog.String("method", "GetPart"),
+			slog.String("field", "uuid"),
+			slog.String("reason", "empty"),
+		)
+		return nil, sb.Err()
+	}
+	number, err := uuid.Parse(req.GetUuid())
+	if err != nil {
+		sb := status.New(codes.InvalidArgument, "INVALID_ARGUMENT")
+		w := &errdetails.BadRequest{
+			FieldViolations: []*errdetails.BadRequest_FieldViolation{
+				{
+					Field:       "uuid",
+					Description: "invalid uuid format",
+				},
+			},
+		}
+		sb, err := sb.WithDetails(w)
+		if err != nil {
+			return nil, status.Error(codes.Internal, "Internal error:")
+		}
+		slog.Warn("validation failed",
+			slog.String("method", "GetPart"),
+			slog.String("field", "uuid"),
+			slog.String("reason", "invalid formate"),
+		)
+		return nil, sb.Err()
+	}
+	part, ok := s.parts[number]
+	if !ok {
+		slog.Warn("part not found",
+			slog.String("method", "GetPart"),
+			slog.String("field", "uuid"),
+			slog.String("reason", "not found"))
+		return nil, status.Error(codes.NotFound, "NOT_FOUND")
+	}
 
-	return nil, status.Error(codes.Unimplemented, "метод GetPart не реализован")
+	return &inventoryv1.GetPartResponse{Part: mapPartToProto(part)}, nil
 }
 
 // ListParts возвращает список деталей с опциональной фильтрацией по типу .
@@ -128,13 +180,56 @@ func (s *InventoryServer) ListParts(
 	ctx context.Context,
 	req *inventoryv1.ListPartsRequest,
 ) (*inventoryv1.ListPartsResponse, error) {
-	// TODO: Реализовать метод
-	// 1. Если передан список uuids → найти детали по UUID (сохраняя порядок запроса)
-	//    - Проверить формат каждого UUID → INVALID_ARGUMENT
-	//    - Если хоть один UUID не найден → NOT_FOUND
-	// 2. Иначе если part_type == UNSPECIFIED → вернуть все детали
-	// 3. Иначе → фильтровать по типу
-	// 4. Отсортировать по имени (только для фильтрации по типу, не для uuids)
-
-	return nil, status.Error(codes.Unimplemented, "метод ListParts не реализован")
+	result := make([]*inventoryv1.Part, 0)
+	if len(req.GetUuids()) > 0 {
+		for _, i := range req.GetUuids() {
+			idStr, err := uuid.Parse(i)
+			if err != nil {
+				sb := status.New(codes.InvalidArgument, "INVALID_ARGUMENT")
+				w := &errdetails.BadRequest{
+					FieldViolations: []*errdetails.BadRequest_FieldViolation{
+						{
+							Field:       "uuids",
+							Description: "invalid uuid: they hand over invalid format",
+						},
+					},
+				}
+				sb, err := sb.WithDetails(w)
+				if err != nil {
+					slog.Error("failed to attach error details",
+						slog.String("method", "ListParts"),
+						slog.String("operation", "WithDetails"),
+						slog.Any("error", err),
+					)
+					return nil, status.Errorf(codes.Internal, "internal error attaching details: %v", err)
+				}
+				slog.Warn("validation failed",
+					slog.String("method", "ListParts"),
+					slog.String("field", "uuid"),
+					slog.String("reason", "invalid format"),
+				)
+				return nil, sb.Err()
+			}
+			part, ok := s.parts[idStr]
+			if !ok {
+				slog.Warn("part not found",
+					slog.String("method", "ListParts"),
+					slog.String("field", "uuid"),
+					slog.String("reason", "not found"))
+				return nil, status.Error(codes.NotFound, "NOT_FOUND")
+			}
+			result = append(result, mapPartToProto(part))
+		}
+		return &inventoryv1.ListPartsResponse{Parts: result}, nil
+	}
+	targetType := req.GetPartType()
+	for _, part := range s.parts {
+		if targetType == inventoryv1.PartType_PART_TYPE_UNSPECIFIED || part.PartType == targetType {
+			result = append(result, mapPartToProto(part))
+		}
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Name < result[j].Name
+	})
+	return &inventoryv1.ListPartsResponse{Parts: result}, nil
 }

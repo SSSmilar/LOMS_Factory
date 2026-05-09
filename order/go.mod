@@ -3,9 +3,9 @@ module github.com/SSSmilar/LOMS_Factory/order
 go 1.26.0
 
 require (
-	github.com/SSSmilar/LOMS_Factoryinventory v0.0.0-00010101000000-000000000000
-	github.com/SSSmilar/LOMS_Factorypayment v0.0.0-00010101000000-000000000000
-	github.com/SSSmilar/LOMS_Factoryshared v0.0.0-00010101000000-000000000000
+	github.com/SSSmilar/LOMS_Factory/inventory v0.0.0-00010101000000-000000000000
+	github.com/SSSmilar/LOMS_Factory/payment v0.0.0-00010101000000-000000000000
+	github.com/SSSmilar/LOMS_Factory/shared v0.0.0-00010101000000-000000000000
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/grpc v1.79.3
@@ -46,8 +46,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/SSSmilar/LOMS_Factoryshared => ./../shared
+replace github.com/SSSmilar/LOMS_Factory/shared => ./../shared
 
-replace github.com/SSSmilar/LOMS_Factoryinventory => ./../inventory
+replace github.com/SSSmilar/LOMS_Factory/inventory => ./../inventory
 
-replace github.com/SSSmilar/LOMS_Factorypayment => ./../payment
+replace github.com/SSSmilar/LOMS_Factory/payment => ./../payment

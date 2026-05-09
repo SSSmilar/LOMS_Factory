@@ -8,9 +8,9 @@ import (
 
 	"github.com/google/uuid"
 
-	orderv1 "github.com/SSSmilar/LOMS_Factoryshared/pkg/openapi/order/v1"
-	inventoryv1 "github.com/SSSmilar/LOMS_Factoryshared/pkg/proto/inventory/v1"
-	paymentv1 "github.com/SSSmilar/LOMS_Factoryshared/pkg/proto/payment/v1"
+	orderv1 "github.com/SSSmilar/LOMS_Factory/shared/pkg/openapi/order/v1"
+	inventoryv1 "github.com/SSSmilar/LOMS_Factory/shared/pkg/proto/inventory/v1"
+	paymentv1 "github.com/SSSmilar/LOMS_Factory/shared/pkg/proto/payment/v1"
 )
 
 // Order представляет заказ на постройку космического корабля.
