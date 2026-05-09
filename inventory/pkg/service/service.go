@@ -200,7 +200,7 @@ func (s *InventoryServer) ListParts(
 				}
 				slog.Warn("validation failed",
 					slog.String("method", "ListParts"),
-					slog.String("field", "uuid"),
+					slog.String("field=uuid", i),
 					slog.String("reason", "invalid format"),
 				)
 				return nil, sb.Err()
