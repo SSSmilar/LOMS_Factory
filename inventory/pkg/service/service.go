@@ -222,8 +222,8 @@ func (s *InventoryServer) ListParts(
 		}
 		return &inventoryv1.ListPartsResponse{Parts: result}, nil
 	}
+	targetType := req.GetPartType()
 	for _, part := range s.parts {
-		targetType := req.GetPartType()
 		if targetType == inventoryv1.PartType_PART_TYPE_UNSPECIFIED || part.PartType == targetType {
 			result = append(result, mapPartToProto(part))
 		}
