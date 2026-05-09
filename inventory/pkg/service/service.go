@@ -148,7 +148,7 @@ func (s *InventoryServer) GetPart(
 			FieldViolations: []*errdetails.BadRequest_FieldViolation{
 				{
 					Field:       "uuid",
-					Description: "invalid uuid: they hand over invalid format",
+					Description: "invalid uuid format",
 				},
 			},
 		}
