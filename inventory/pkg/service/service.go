@@ -126,7 +126,7 @@ func (s *InventoryServer) GetPart(
 			FieldViolations: []*errdetails.BadRequest_FieldViolation{
 				{
 					Field:       "uuid",
-					Description: "invalid uuid: is required and cannot be empty ",
+					Description: "uuid is required and cannot be empty",
 				},
 			},
 		}
@@ -148,7 +148,7 @@ func (s *InventoryServer) GetPart(
 			FieldViolations: []*errdetails.BadRequest_FieldViolation{
 				{
 					Field:       "uuid",
-					Description: "invalid uuid: they hand over invalid format",
+					Description: "invalid uuid format",
 				},
 			},
 		}
@@ -196,7 +196,12 @@ func (s *InventoryServer) ListParts(
 				}
 				sb, err := sb.WithDetails(w)
 				if err != nil {
-					return nil, status.Error(codes.Internal, "Internal error:")
+					slog.Error("failed to attach error details",
+						slog.String("method", "ListParts"),
+						slog.String("operation", "WithDetails"),
+						slog.Any("error", err),
+					)
+					return nil, status.Errorf(codes.Internal, "internal error attaching details: %v", err)
 				}
 				slog.Warn("validation failed",
 					slog.String("method", "ListParts"),
@@ -217,8 +222,8 @@ func (s *InventoryServer) ListParts(
 		}
 		return &inventoryv1.ListPartsResponse{Parts: result}, nil
 	}
+	targetType := req.GetPartType()
 	for _, part := range s.parts {
-		targetType := req.GetPartType()
 		if targetType == inventoryv1.PartType_PART_TYPE_UNSPECIFIED || part.PartType == targetType {
 			result = append(result, mapPartToProto(part))
 		}

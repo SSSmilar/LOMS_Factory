@@ -46,10 +46,14 @@ func main() {
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	slog.Info("остановка gRPC сервера")
-	<-quit
-	grpcServer.GracefulStop()
-	slog.Info("сервер остановлен")
+	defer signal.Stop(quit)
+
+	go func() {
+		<-quit
+		slog.Info("остановка gRPC сервера")
+		grpcServer.GracefulStop()
+		slog.Info("сервер остановлен")
+	}()
 
 	err = grpcServer.Serve(lis)
 	if err != nil {
