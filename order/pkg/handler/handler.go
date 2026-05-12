@@ -7,11 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
-
 	orderv1 "github.com/SSSmilar/LOMS_Factory/shared/pkg/openapi/order/v1"
 	inventoryv1 "github.com/SSSmilar/LOMS_Factory/shared/pkg/proto/inventory/v1"
 	paymentv1 "github.com/SSSmilar/LOMS_Factory/shared/pkg/proto/payment/v1"
+	"github.com/google/uuid"
 )
 
 // Order представляет заказ на постройку космического корабля.
@@ -253,16 +252,60 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 	}, nil
 }
 
-//
 // PayOrder реализует операцию payOrder
 // POST /api/v1/orders/{order_uuid}/pay
-// func (h *OrderHandler) PayOrder(ctx context.Context, req *orderv1.PayOrderRequest, params orderv1.PayOrderParams) (orderv1.PayOrderRes, error) {
-//     // 1. Найти заказ в store
-//     // 2. Проверить статус == PENDING_PAYMENT
-//     // 3. Вызвать h.paymentClient.PayOrder для обработки платежа
-//     // 4. Обновить статус на PAID и сохранить transaction_uuid
-//     // 5. Вернуть transaction_uuid
-// }
+func (h *OrderHandler) PayOrder(ctx context.Context, req *orderv1.PayOrderRequest, params orderv1.PayOrderParams) (orderv1.PayOrderRes, error) {
+	h.store.mu.RLock()
+	order, ok := h.store.orders[params.OrderUUID]
+	if !ok {
+		return nil, errors.New("order not found")
+	}
+	if order.Status != "PENDING_PAYMENT" {
+		return nil, errors.New("order is not in pending payment state")
+	}
+	h.store.mu.RUnlock()
+	var paymentMethod paymentv1.PaymentMethod
+	switch req.GetPaymentMethod() {
+	case orderv1.PaymentMethod("CARD"):
+		paymentMethod = paymentv1.PaymentMethod_PAYMENT_METHOD_CARD
+	case orderv1.PaymentMethod("SBP"):
+		paymentMethod = paymentv1.PaymentMethod_PAYMENT_METHOD_SBP
+	case orderv1.PaymentMethod("CREDIT_CARD"):
+		paymentMethod = paymentv1.PaymentMethod_PAYMENT_METHOD_CREDIT_CARD
+	case orderv1.PaymentMethod("INVESTOR_MONEY"):
+		paymentMethod = paymentv1.PaymentMethod_PAYMENT_METHOD_INVESTOR_MONEY
+	default:
+		return nil, errors.New("unknown payment method")
+	}
+	payReq := &paymentv1.PayOrderRequest{
+		OrderUuid:    	order.OrderUUID.String(),
+		PaymentMethod: paymentMethod,
+	}
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	payRes, err := h.paymentClient.PayOrder(ctxWithTimeout, payReq)
+	if err != nil {
+		return nil, errors.New("Response error: " + err.Error())
+	}
+	h.store.mu.Lock()
+	defer h.store.mu.Unlock()
+	order = h.store.orders[params.OrderUUID]
+	order.Status = "PAID"
+	transactionUuid, err := uuid.Parse(payRes.GetTransactionUuid())
+	if err != nil {
+		return nil, errors.New("Response error: " + err.Error())
+	}
+	order.TransactionUUID = &transactionUuid
+	h.store.orders[order.OrderUUID] = order
+	//1. Найти заказ в store
+	//     // 2. Проверить статус == PENDING_PAYMENT
+	//     // 3. Вызвать h.paymentClient.PayOrder для обработки платежа
+	//     // 4. Обновить статус на PAID и сохранить transaction_uuid
+	//     // 5. Вернуть transaction_uuid
+	return &orderv1.PayOrderResponse{TransactionUUID: transactionUuid}, nil
+}
+
 //
 // CancelOrder реализует операцию cancelOrder
 // POST /api/v1/orders/{order_uuid}/cancel
