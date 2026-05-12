@@ -67,6 +67,46 @@ func SetupServer(h *OrderHandler) (*orderv1.Server, error) {
 	return orderv1.NewServer(h)
 }
 
+func (h *OrderHandler) fetchAndValidatePart(
+	ctx context.Context,
+	partType inventoryv1.PartType,
+	partUUID string,
+) (*inventoryv1.Part, orderv1.CreateOrderRes) {
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	req := &inventoryv1.ListPartsRequest{
+		PartType: partType,
+		Uuids:    []string{partUUID},
+	}
+
+	resp, err := h.inventoryClient.ListParts(ctxWithTimeout, req)
+	if err != nil {
+		return nil, &orderv1.CreateOrderInternalServerError{
+			Code:    http.StatusInternalServerError,
+			Message: "inventory service error",
+		}
+	}
+
+	if len(resp.GetParts()) == 0 {
+		return nil, &orderv1.CreateOrderNotFound{
+			Code:    http.StatusNotFound,
+			Message: "part not found",
+		}
+	}
+
+	part := resp.GetParts()[0]
+
+	if part.StockQuantity == 0 {
+		return nil, &orderv1.CreateOrderConflict{
+			Code:    http.StatusConflict,
+			Message: "part out of stock",
+		}
+	}
+
+	return part, nil
+}
+
 // GetOrder реализует операцию getOrder (пример реализации).
 // GET /api/v1/orders/{order_uuid}.
 func (h *OrderHandler) GetOrder(_ context.Context, params orderv1.GetOrderParams) (orderv1.GetOrderRes, error) {
@@ -129,33 +169,9 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 			Message: "HullUuid is required and cannot be empty.",
 		}, nil
 	}
-	hullReq := &inventoryv1.ListPartsRequest{
-		PartType: inventoryv1.PartType_PART_TYPE_HULL,
-		Uuids:    []string{req.HullUUID.String()},
-	}
-
-	hullResp, err := h.inventoryClient.ListParts(ctxWithTimeoutHull, hullReq)
+	hull, err := h.fetchAndValidatePart(ctxWithTimeoutHull, inventoryv1.PartType_PART_TYPE_HULL, req.HullUUID.String())
 	if err != nil {
-		return &orderv1.CreateOrderInternalServerError{
-			Code:    http.StatusInternalServerError,
-			Message: "Server error: ",
-		}, nil
-	}
-
-	if len(hullResp.GetParts()) <= 0 {
-		return &orderv1.CreateOrderNotFound{
-			Code:    http.StatusNotFound,
-			Message: "Hull not found",
-		}, nil
-	}
-
-	hull := hullResp.GetParts()[0]
-
-	if hull.StockQuantity <= 0 {
-		return &orderv1.CreateOrderConflict{
-			Code:    http.StatusConflict,
-			Message: "Hull out of stock",
-		}, nil
+		return err, nil
 	}
 	totalPrice += hull.Price
 
@@ -168,33 +184,9 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 		}, nil
 	}
 
-	engineReq := &inventoryv1.ListPartsRequest{
-		PartType: inventoryv1.PartType_PART_TYPE_ENGINE,
-		Uuids:    []string{req.EngineUUID.String()},
-	}
-
-	engineResp, err := h.inventoryClient.ListParts(ctxWithTimeoutEngine, engineReq)
+	engine, err := h.fetchAndValidatePart(ctxWithTimeoutEngine, inventoryv1.PartType_PART_TYPE_ENGINE, req.EngineUUID.String())
 	if err != nil {
-		return &orderv1.CreateOrderConflict{
-			Code:    http.StatusConflict,
-			Message: "Engine out of stock",
-		}, nil
-	}
-
-	if len(engineResp.GetParts()) <= 0 {
-		return &orderv1.CreateOrderNotFound{
-			Code:    http.StatusNotFound,
-			Message: "Engine not found",
-		}, nil
-	}
-
-	engine := engineResp.GetParts()[0]
-
-	if engine.StockQuantity <= 0 {
-		return &orderv1.CreateOrderConflict{
-			Code:    http.StatusConflict,
-			Message: "Engine out of stock",
-		}, nil
+		return err, nil
 	}
 	totalPrice += engine.Price
 
@@ -203,33 +195,9 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 		ctxWithTimeoutShield, cancelShield := context.WithTimeout(ctx, 3*time.Second)
 		defer cancelShield()
 		shieldUuidId = &req.ShieldUUID.Value
-		shieldReq := &inventoryv1.ListPartsRequest{
-			PartType: inventoryv1.PartType_PART_TYPE_SHIELD,
-			Uuids:    []string{shieldUuidId.String()},
-		}
-
-		shieldResp, err := h.inventoryClient.ListParts(ctxWithTimeoutShield, shieldReq)
+		shield, err := h.fetchAndValidatePart(ctxWithTimeoutShield, inventoryv1.PartType_PART_TYPE_SHIELD, shieldUuidId.String())
 		if err != nil {
-			return &orderv1.CreateOrderConflict{
-				Code:    http.StatusConflict,
-				Message: "shield out of stock",
-			}, nil
-		}
-
-		if len(shieldResp.GetParts()) <= 0 {
-			return &orderv1.CreateOrderNotFound{
-				Code:    http.StatusNotFound,
-				Message: "shield not found",
-			}, nil
-		}
-
-		shield := shieldResp.GetParts()[0]
-
-		if shield.StockQuantity <= 0 {
-			return &orderv1.CreateOrderConflict{
-				Code:    http.StatusConflict,
-				Message: "shield out of stock",
-			}, nil
+			return err, nil
 		}
 		totalPrice += shield.Price
 	}
@@ -239,34 +207,9 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 		ctxWithTimeoutWeapon, cancelWeapon := context.WithTimeout(ctx, 3*time.Second)
 		defer cancelWeapon()
 		weaponUUID = &req.WeaponUUID.Value
-
-		weaponReq := &inventoryv1.ListPartsRequest{
-			PartType: inventoryv1.PartType_PART_TYPE_WEAPON,
-			Uuids:    []string{weaponUUID.String()},
-		}
-
-		weaponResp, err := h.inventoryClient.ListParts(ctxWithTimeoutWeapon, weaponReq)
+		weapon, err := h.fetchAndValidatePart(ctxWithTimeoutWeapon, inventoryv1.PartType_PART_TYPE_WEAPON, weaponUUID.String())
 		if err != nil {
-			return &orderv1.CreateOrderConflict{
-				Code:    http.StatusConflict,
-				Message: "weapon out of stock",
-			}, nil
-		}
-
-		if len(weaponResp.GetParts()) <= 0 {
-			return &orderv1.CreateOrderNotFound{
-				Code:    http.StatusNotFound,
-				Message: "weapon not found",
-			}, nil
-		}
-
-		weapon := weaponResp.GetParts()[0]
-
-		if weapon.StockQuantity <= 0 {
-			return &orderv1.CreateOrderConflict{
-				Code:    http.StatusConflict,
-				Message: "shield out of stock",
-			}, nil
+			return err, nil
 		}
 		totalPrice += weapon.Price
 	}
@@ -294,8 +237,8 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 	}, nil
 }
 
-// PayOrder реализует операцию payOrder
-// POST /api/v1/orders/{order_uuid}/pay
+// PayOrder реализует операцию payOrder.
+// POST /api/v1/orders/{order_uuid}/pay.
 func (h *OrderHandler) PayOrder(ctx context.Context, req *orderv1.PayOrderRequest, params orderv1.PayOrderParams) (orderv1.PayOrderRes, error) {
 	h.store.mu.RLock()
 	order, ok := h.store.orders[params.OrderUUID]
@@ -356,7 +299,7 @@ func (h *OrderHandler) PayOrder(ctx context.Context, req *orderv1.PayOrderReques
 }
 
 // CancelOrder реализует операцию cancelOrder
-// POST /api/v1/orders/{order_uuid}/cancel
+// POST /api/v1/orders/{order_uuid}/cancel.
 func (h *OrderHandler) CancelOrder(_ context.Context, params orderv1.CancelOrderParams) (orderv1.CancelOrderRes, error) {
 	h.store.mu.RLock()
 	order, ok := h.store.orders[params.OrderUUID]
