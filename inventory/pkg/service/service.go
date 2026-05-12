@@ -103,6 +103,7 @@ func NewInventoryServer() *InventoryServer {
 		},
 	}
 }
+
 func mapPartToProto(part Part) *inventoryv1.Part {
 	return &inventoryv1.Part{
 		Uuid:          part.UUID,
@@ -114,6 +115,7 @@ func mapPartToProto(part Part) *inventoryv1.Part {
 		CreatedAt:     part.CreatedAt,
 	}
 }
+
 // GetPart возвращает деталь по UUID .
 func (s *InventoryServer) GetPart(
 	ctx context.Context,
@@ -205,7 +207,7 @@ func (s *InventoryServer) ListParts(
 				}
 				slog.Warn("validation failed",
 					slog.String("method", "ListParts"),
-					slog.String("field", "uuid"),
+					slog.String("field=uuid", i),
 					slog.String("reason", "invalid format"),
 				)
 				return nil, sb.Err()
