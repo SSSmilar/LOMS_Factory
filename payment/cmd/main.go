@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"net"
 	"os"
@@ -19,12 +20,15 @@ import (
 const grpcAddress = ":50052"
 
 func main() {
-	lis, err := net.Listen("tcp", grpcAddress)
-	if err != nil {
-		slog.Error("не удалось создать listener", "error", err)
-		os.Exit(1)
-	}
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
 
+	lc := net.ListenConfig{}
+	lis, err := lc.Listen(ctx, "tcp", grpcAddress)
+	if err != nil {
+		slog.Error("failed to create listener", "error", err)
+		return
+	}
 	kasp := keepalive.ServerParameters{
 		MaxConnectionIdle:     15 * time.Minute,
 		MaxConnectionAge:      1 * time.Hour,
@@ -58,6 +62,5 @@ func main() {
 	err = grpcServer.Serve(lis)
 	if err != nil {
 		slog.Error("ошибка запуска сервера", "error", err)
-		os.Exit(1)
 	}
 }
