@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -24,25 +23,10 @@ const (
 )
 
 func main() {
-	//conn, err := grpc.NewClient("localhost:50053",
-	//	grpc.WithTransportCredentials(insecure.NewCredentials()),
-	//	grpc.WithKeepaliveParams(keepalive.ClientParameters{
-	//		Time:                10 * time.Second,
-	//		Timeout:             3 * time.Second,
-	//		PermitWithoutStream: true,
-	//	}),
-	//)
-	//if err != nil {
-	//	slog.Error("не удалось подключиться к inventory", "error", err)
-	//	os.Exit(1)
-	//}
-	//defer conn.Close()
-	// Создать gRPC соединение с InventoryService
 	inventoryConn, err := grpc.NewClient(inventoryServiceAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		slog.Error("не удалось подключиться к InventoryService", "error", err)
-		os.Exit(1)
 	}
 	defer inventoryConn.Close()
 
@@ -50,7 +34,6 @@ func main() {
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		slog.Error("не удалось подключиться к PaymentService", "error", err)
-		os.Exit(1)
 	}
 	defer paymentConn.Close()
 
@@ -65,7 +48,6 @@ func main() {
 	orderServer, err := orderHandler.SetupServer(h)
 	if err != nil {
 		slog.Error("ошибка создания сервера OpenAPI", "error", err)
-		os.Exit(1)
 	}
 	httpServer := &http.Server{
 		Addr:              ":8080",
