@@ -103,6 +103,7 @@ func NewInventoryServer() *InventoryServer {
 		},
 	}
 }
+
 func mapPartToProto(part Part) *inventoryv1.Part {
 	return &inventoryv1.Part{
 		Uuid:          part.UUID,
@@ -114,6 +115,7 @@ func mapPartToProto(part Part) *inventoryv1.Part {
 		CreatedAt:     part.CreatedAt,
 	}
 }
+
 // GetPart возвращает деталь по UUID .
 func (s *InventoryServer) GetPart(
 	ctx context.Context,
