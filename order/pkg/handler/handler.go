@@ -124,7 +124,10 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 	defer cancelHull()
 
 	if uuid.Nil == req.HullUUID {
-		return nil, errors.New("hull_uuid is required")
+		return &orderv1.CreateOrderBadRequest{
+			Code:    http.StatusBadRequest,
+			Message: "HullUuid is required and cannot be empty.",
+		}, nil
 	}
 	hullReq := &inventoryv1.ListPartsRequest{
 		PartType: inventoryv1.PartType_PART_TYPE_HULL,
@@ -133,24 +136,36 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 
 	hullResp, err := h.inventoryClient.ListParts(ctxWithTimeoutHull, hullReq)
 	if err != nil {
-		return nil, errors.New("Response error: " + err.Error())
+		return &orderv1.CreateOrderInternalServerError{
+			Code:    http.StatusInternalServerError,
+			Message: "Server error: ",
+		}, nil
 	}
 
 	if len(hullResp.GetParts()) <= 0 {
-		return nil, errors.New("Hull not found")
+		return &orderv1.CreateOrderNotFound{
+			Code:    http.StatusNotFound,
+			Message: "Hull not found",
+		}, nil
 	}
 
 	hull := hullResp.GetParts()[0]
 
 	if hull.StockQuantity <= 0 {
-		return nil, errors.New("Hull out of stock")
+		return &orderv1.CreateOrderConflict{
+			Code:    http.StatusConflict,
+			Message: "Hull out of stock",
+		}, nil
 	}
 	totalPrice += hull.Price
 
 	ctxWithTimeoutEngine, cancelEngine := context.WithTimeout(ctx, 3*time.Second)
 	defer cancelEngine()
 	if uuid.Nil == req.EngineUUID {
-		return nil, errors.New("engine_uuid is required")
+		return &orderv1.CreateOrderBadRequest{
+			Code:    http.StatusBadRequest,
+			Message: "EngineUuid is required and cannot be empty.",
+		}, nil
 	}
 
 	engineReq := &inventoryv1.ListPartsRequest{
@@ -160,17 +175,26 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 
 	engineResp, err := h.inventoryClient.ListParts(ctxWithTimeoutEngine, engineReq)
 	if err != nil {
-		return nil, errors.New("Response error: " + err.Error())
+		return &orderv1.CreateOrderConflict{
+			Code:    http.StatusConflict,
+			Message: "Engine out of stock",
+		}, nil
 	}
 
 	if len(engineResp.GetParts()) <= 0 {
-		return nil, errors.New("Engine not found")
+		return &orderv1.CreateOrderNotFound{
+			Code:    http.StatusNotFound,
+			Message: "Engine not found",
+		}, nil
 	}
 
 	engine := engineResp.GetParts()[0]
 
 	if engine.StockQuantity <= 0 {
-		return nil, errors.New("Engine out of stock")
+		return &orderv1.CreateOrderConflict{
+			Code:    http.StatusConflict,
+			Message: "Engine out of stock",
+		}, nil
 	}
 	totalPrice += engine.Price
 
@@ -186,17 +210,26 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 
 		shieldResp, err := h.inventoryClient.ListParts(ctxWithTimeoutShield, shieldReq)
 		if err != nil {
-			return nil, errors.New("Response error: " + err.Error())
+			return &orderv1.CreateOrderConflict{
+				Code:    http.StatusConflict,
+				Message: "shield out of stock",
+			}, nil
 		}
 
 		if len(shieldResp.GetParts()) <= 0 {
-			return nil, errors.New("Shield not found")
+			return &orderv1.CreateOrderNotFound{
+				Code:    http.StatusNotFound,
+				Message: "shield not found",
+			}, nil
 		}
 
 		shield := shieldResp.GetParts()[0]
 
 		if shield.StockQuantity <= 0 {
-			return nil, errors.New("Shield out of stock")
+			return &orderv1.CreateOrderConflict{
+				Code:    http.StatusConflict,
+				Message: "shield out of stock",
+			}, nil
 		}
 		totalPrice += shield.Price
 	}
@@ -214,19 +247,27 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 
 		weaponResp, err := h.inventoryClient.ListParts(ctxWithTimeoutWeapon, weaponReq)
 		if err != nil {
-			return nil, errors.New("Response error: " + err.Error())
+			return &orderv1.CreateOrderConflict{
+				Code:    http.StatusConflict,
+				Message: "weapon out of stock",
+			}, nil
 		}
 
 		if len(weaponResp.GetParts()) <= 0 {
-			return nil, errors.New("Weapon not found")
+			return &orderv1.CreateOrderNotFound{
+				Code:    http.StatusNotFound,
+				Message: "weapon not found",
+			}, nil
 		}
 
 		weapon := weaponResp.GetParts()[0]
 
 		if weapon.StockQuantity <= 0 {
-			return nil, errors.New("Weapon out of stock")
+			return &orderv1.CreateOrderConflict{
+				Code:    http.StatusConflict,
+				Message: "shield out of stock",
+			}, nil
 		}
-
 		totalPrice += weapon.Price
 	}
 	orderUuid := uuid.New()
@@ -259,10 +300,16 @@ func (h *OrderHandler) PayOrder(ctx context.Context, req *orderv1.PayOrderReques
 	h.store.mu.RLock()
 	order, ok := h.store.orders[params.OrderUUID]
 	if !ok {
-		return nil, errors.New("order not found")
+		return &orderv1.PayOrderNotFound{
+			Code:    http.StatusNotFound,
+			Message: "order not found",
+		}, nil
 	}
 	if order.Status != "PENDING_PAYMENT" {
-		return nil, errors.New("order is not in pending payment state")
+		return &orderv1.PayOrderConflict{
+			Code:    http.StatusConflict,
+			Message: "status is not pending payment",
+		}, nil
 	}
 	h.store.mu.RUnlock()
 	var paymentMethod paymentv1.PaymentMethod
@@ -287,7 +334,10 @@ func (h *OrderHandler) PayOrder(ctx context.Context, req *orderv1.PayOrderReques
 
 	payRes, err := h.paymentClient.PayOrder(ctxWithTimeout, payReq)
 	if err != nil {
-		return nil, errors.New("Response error: " + err.Error())
+		return &orderv1.PayOrderInternalServerError{
+			Code:    http.StatusInternalServerError,
+			Message: "payment error: " + err.Error() + "",
+		}, nil
 	}
 	h.store.mu.Lock()
 	defer h.store.mu.Unlock()
@@ -295,7 +345,10 @@ func (h *OrderHandler) PayOrder(ctx context.Context, req *orderv1.PayOrderReques
 	order.Status = "PAID"
 	transactionUuid, err := uuid.Parse(payRes.GetTransactionUuid())
 	if err != nil {
-		return nil, errors.New("Response error: " + err.Error())
+		return &orderv1.PayOrderInternalServerError{
+			Code:    http.StatusInternalServerError,
+			Message: "order server error",
+		}, nil
 	}
 	order.TransactionUUID = &transactionUuid
 	h.store.orders[order.OrderUUID] = order
@@ -308,10 +361,16 @@ func (h *OrderHandler) CancelOrder(_ context.Context, params orderv1.CancelOrder
 	h.store.mu.RLock()
 	order, ok := h.store.orders[params.OrderUUID]
 	if !ok {
-		return nil, errors.New("order not found")
+		return &orderv1.CancelOrderNotFound{
+			Code:    http.StatusNotFound,
+			Message: "order not found",
+		}, nil
 	}
 	if order.Status != "PENDING_PAYMENT" {
-		return nil, errors.New("order is not in pending payment state")
+		return &orderv1.CancelOrderConflict{
+			Code:    http.StatusConflict,
+			Message: "status is not pending payment",
+		}, nil
 	}
 	h.store.mu.RUnlock()
 	h.store.mu.Lock()
@@ -319,10 +378,5 @@ func (h *OrderHandler) CancelOrder(_ context.Context, params orderv1.CancelOrder
 	order = h.store.orders[params.OrderUUID]
 	order.Status = "CANCELLED"
 	h.store.orders[order.OrderUUID] = order
-
-	//     // 1. Найти заказ в store
-	//     // 2. Проверить статус == PENDING_PAYMENT
-	//     // 3. Обновить статус на CANCELLED
-	//     // 4. Вернуть success
 	return &orderv1.CancelOrderResponse{}, nil
 }
