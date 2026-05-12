@@ -4,6 +4,8 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/google/uuid"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -20,17 +22,94 @@ func (s *PaymentServer) PayOrder(
 	ctx context.Context,
 	req *paymentv1.PayOrderRequest,
 ) (*paymentv1.PayOrderResponse, error) {
-	// TODO: Реализовать метод
-	// 1. Проверить, что order_uuid не пустой → INVALID_ARGUMENT
-	// 2. Проверить, что payment_method != UNSPECIFIED → INVALID_ARGUMENT
-	// 3. Проверить формат UUID → INVALID_ARGUMENT
-	// 4. Сгенерировать transaction_uuid (UUID v4)
-	// 5. Вывести в лог: "оплата прошла успешно, order_uuid: X, transaction_uuid: Y"
-	// 6. Вернуть transaction_uuid
+	_ = ctx
+	if len(req.GetOrderUuid()) <= 0 {
+		sb := status.New(codes.InvalidArgument, "INVALID_ARGUMENT")
+		w := &errdetails.BadRequest{
+			FieldViolations: []*errdetails.BadRequest_FieldViolation{
+				{
+					Field:       "order_uuid",
+					Description: "order_uuid is required and cannot be empty",
+				},
+			},
+		}
+		sb, err := sb.WithDetails(w)
+		if err != nil {
+			slog.Error("failed to attach error details",
+				slog.String("method", "ListParts"),
+				slog.String("operation", "WithDetails"),
+				slog.Any("error", err),
+			)
+			return nil, status.Errorf(codes.Internal, "internal error attaching details: %v", err)
+		}
+		slog.Warn("validation failed",
+			slog.String("method", "PayOrder"),
+			slog.String("field=order_uuid", req.GetOrderUuid()),
+			slog.String("reason", "empty"),
+		)
+		return nil, sb.Err()
+	}
+	payMethod := req.GetPaymentMethod()
+	if payMethod == paymentv1.PaymentMethod_PAYMENT_METHOD_UNSPECIFIED {
+		sb := status.New(codes.InvalidArgument, "INVALID_ARGUMENT")
+		w := &errdetails.BadRequest{
+			FieldViolations: []*errdetails.BadRequest_FieldViolation{
+				{
+					Field:       "Payment Method",
+					Description: "Payment Method is Unspecified",
+				},
+			},
+		}
+		sb, err := sb.WithDetails(w)
+		if err != nil {
+			slog.Error("method PayOrder failed to attach error details:",
+				slog.String("method", "ListParts"),
+				slog.String("operation", "WithDetails"),
+				slog.Any("error", err),
+			)
+			return nil, status.Errorf(codes.Internal, "internal error attaching details: %v", err)
+		}
+		slog.Warn("validation failed",
+			slog.String("method", "PayOrder"),
+			slog.String("field=PaymentMethod", payMethod.String()),
+			slog.String("reason", "unspecified"),
+		)
+		return nil, sb.Err()
+	}
+	_, err := uuid.Parse(req.GetOrderUuid())
+	if err != nil {
+		sb := status.New(codes.InvalidArgument, "INVALID_ARGUMENT")
+		w := &errdetails.BadRequest{
+			FieldViolations: []*errdetails.BadRequest_FieldViolation{
+				{
+					Field:       "order_uuid",
+					Description: "invalid order_uuid format",
+				},
+			},
+		}
+		sb, err := sb.WithDetails(w)
+		if err != nil {
+			slog.Error("method PayOrder failed to attach error details:",
+				slog.String("method", "ListParts"),
+				slog.String("operation", "WithDetails"),
+				slog.Any("error", err),
+			)
+			return nil, status.Errorf(codes.Internal, "internal error attaching details: %v", err)
+		}
+		slog.Warn("validation failed",
+			slog.String("method", "PayOrder"),
+			slog.String("field=order_uuid", req.GetOrderUuid()),
+			slog.String("reason", "invalid format"),
+		)
+		return nil, sb.Err()
+	}
+	transactionUuid := uuid.New()
 
 	slog.Info("оплата прошла успешно",
 		"order_uuid", req.GetOrderUuid(),
+		"transaction_uuid", transactionUuid,
 	)
-
-	return nil, status.Error(codes.Unimplemented, "метод PayOrder не реализован")
+	return &paymentv1.PayOrderResponse{
+		TransactionUuid: transactionUuid.String(),
+	}, nil
 }
