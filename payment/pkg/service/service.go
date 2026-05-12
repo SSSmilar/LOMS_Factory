@@ -23,7 +23,7 @@ func (s *PaymentServer) PayOrder(
 	req *paymentv1.PayOrderRequest,
 ) (*paymentv1.PayOrderResponse, error) {
 	_ = ctx
-	if len(req.GetOrderUuid()) <= 0 {
+	if len(req.GetOrderUuid()) == 0 {
 		sb := status.New(codes.InvalidArgument, "INVALID_ARGUMENT")
 		w := &errdetails.BadRequest{
 			FieldViolations: []*errdetails.BadRequest_FieldViolation{
