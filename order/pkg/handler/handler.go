@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"sync"
 	"time"
@@ -117,20 +118,141 @@ func (h *OrderHandler) GetOrder(_ context.Context, params orderv1.GetOrderParams
 	}, nil
 }
 
-// TODO: Реализовать остальные методы интерфейса orderv1.Handler:
-//
-// CreateOrder реализует операцию createOrder
-// POST /api/v1/orders
-// func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrderRequest) (orderv1.CreateOrderRes, error) {
-//     // 1. Валидация: hull_uuid и engine_uuid обязательны
-//     // 2. Получить детали через InventoryService.ListParts
-//     // 3. Проверить stock_quantity > 0
-//     // 4. Вычислить total_price
-//     // 5. Сгенерировать order_uuid (UUID v4)
-//     // 6. Создать заказ со статусом PENDING_PAYMENT
-//     // 7. Сохранить в store
-//     // 8. Вернуть order_uuid и total_price
-// }
+func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrderRequest) (orderv1.CreateOrderRes, error) {
+	var totalPrice int64
+	ctxWithTimeoutHull, cancelHull := context.WithTimeout(ctx, 3*time.Second)
+	defer cancelHull()
+
+	if uuid.Nil == req.HullUUID {
+		return nil, errors.New("hull_uuid is required")
+	}
+	hullReq := &inventoryv1.ListPartsRequest{
+		PartType: inventoryv1.PartType_PART_TYPE_HULL,
+		Uuids:    []string{req.HullUUID.String()},
+	}
+
+	hullResp, err := h.inventoryClient.ListParts(ctxWithTimeoutHull, hullReq)
+	if err != nil {
+		return nil, errors.New("Response error: " + err.Error())
+	}
+
+	if len(hullResp.GetParts()) <= 0 {
+		return nil, errors.New("Hull not found")
+	}
+
+	hull := hullResp.GetParts()[0]
+
+	if hull.StockQuantity <= 0 {
+		return nil, errors.New("Hull out of stock")
+	}
+	totalPrice += hull.Price
+
+	ctxWithTimeoutEngine, cancelEngine := context.WithTimeout(ctx, 3*time.Second)
+	defer cancelEngine()
+	if uuid.Nil == req.EngineUUID {
+		return nil, errors.New("engine_uuid is required")
+	}
+
+	engineReq := &inventoryv1.ListPartsRequest{
+		PartType: inventoryv1.PartType_PART_TYPE_ENGINE,
+		Uuids:    []string{req.EngineUUID.String()},
+	}
+
+	engineResp, err := h.inventoryClient.ListParts(ctxWithTimeoutEngine, engineReq)
+	if err != nil {
+		return nil, errors.New("Response error: " + err.Error())
+	}
+
+	if len(engineResp.GetParts()) <= 0 {
+		return nil, errors.New("Engine not found")
+	}
+
+	engine := engineResp.GetParts()[0]
+
+	if engine.StockQuantity <= 0 {
+		return nil, errors.New("Engine out of stock")
+	}
+	totalPrice += engine.Price
+
+	var shieldUuidId *uuid.UUID
+	if req.ShieldUUID.Set && !req.ShieldUUID.Null {
+		ctxWithTimeoutShield, cancelShield := context.WithTimeout(ctx, 3*time.Second)
+		defer cancelShield()
+		shieldUuidId = &req.ShieldUUID.Value
+		shieldReq := &inventoryv1.ListPartsRequest{
+			PartType: inventoryv1.PartType_PART_TYPE_SHIELD,
+			Uuids:    []string{shieldUuidId.String()},
+		}
+
+		shieldResp, err := h.inventoryClient.ListParts(ctxWithTimeoutShield, shieldReq)
+		if err != nil {
+			return nil, errors.New("Response error: " + err.Error())
+		}
+
+		if len(shieldResp.GetParts()) <= 0 {
+			return nil, errors.New("Shield not found")
+		}
+
+		shield := shieldResp.GetParts()[0]
+
+		if shield.StockQuantity <= 0 {
+			return nil, errors.New("Shield out of stock")
+		}
+		totalPrice += shield.Price
+	}
+
+	var weaponUUID *uuid.UUID
+	if req.WeaponUUID.Set && !req.WeaponUUID.Null {
+		ctxWithTimeoutWeapon, cancelWeapon := context.WithTimeout(ctx, 3*time.Second)
+		defer cancelWeapon()
+		weaponUUID = &req.WeaponUUID.Value
+
+		weaponReq := &inventoryv1.ListPartsRequest{
+			PartType: inventoryv1.PartType_PART_TYPE_WEAPON,
+			Uuids:    []string{weaponUUID.String()},
+		}
+
+		weaponResp, err := h.inventoryClient.ListParts(ctxWithTimeoutWeapon, weaponReq)
+		if err != nil {
+			return nil, errors.New("Response error: " + err.Error())
+		}
+
+		if len(weaponResp.GetParts()) <= 0 {
+			return nil, errors.New("Weapon not found")
+		}
+
+		weapon := weaponResp.GetParts()[0]
+
+		if weapon.StockQuantity <= 0 {
+			return nil, errors.New("Weapon out of stock")
+		}
+
+		totalPrice += weapon.Price
+	}
+	orderUuid := uuid.New()
+
+	myOrder := Order{
+		OrderUUID:       orderUuid,
+		HullUUID:        req.HullUUID,
+		EngineUUID:      req.EngineUUID,
+		ShieldUUID:      shieldUuidId,
+		WeaponUUID:      weaponUUID,
+		TotalPrice:      totalPrice,
+		TransactionUUID: nil,
+		PaymentMethod:   nil,
+		Status:          "PENDING_PAYMENT",
+		CreatedAt:       time.Now(),
+	}
+	h.store.mu.Lock()
+	defer h.store.mu.Unlock()
+	h.store.orders[myOrder.OrderUUID] = myOrder
+
+	return &orderv1.CreateOrderResponse{
+		OrderUUID:  orderUuid,
+		TotalPrice: totalPrice,
+	}, nil
+}
+
 //
 // PayOrder реализует операцию payOrder
 // POST /api/v1/orders/{order_uuid}/pay
