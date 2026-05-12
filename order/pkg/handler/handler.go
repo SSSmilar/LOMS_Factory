@@ -7,10 +7,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+
 	orderv1 "github.com/SSSmilar/LOMS_Factory/shared/pkg/openapi/order/v1"
 	inventoryv1 "github.com/SSSmilar/LOMS_Factory/shared/pkg/proto/inventory/v1"
 	paymentv1 "github.com/SSSmilar/LOMS_Factory/shared/pkg/proto/payment/v1"
-	"github.com/google/uuid"
 )
 
 // Order представляет заказ на постройку космического корабля.
@@ -278,7 +279,7 @@ func (h *OrderHandler) PayOrder(ctx context.Context, req *orderv1.PayOrderReques
 		return nil, errors.New("unknown payment method")
 	}
 	payReq := &paymentv1.PayOrderRequest{
-		OrderUuid:    	order.OrderUUID.String(),
+		OrderUuid:     order.OrderUUID.String(),
 		PaymentMethod: paymentMethod,
 	}
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, 3*time.Second)
@@ -298,20 +299,30 @@ func (h *OrderHandler) PayOrder(ctx context.Context, req *orderv1.PayOrderReques
 	}
 	order.TransactionUUID = &transactionUuid
 	h.store.orders[order.OrderUUID] = order
-	//1. Найти заказ в store
-	//     // 2. Проверить статус == PENDING_PAYMENT
-	//     // 3. Вызвать h.paymentClient.PayOrder для обработки платежа
-	//     // 4. Обновить статус на PAID и сохранить transaction_uuid
-	//     // 5. Вернуть transaction_uuid
 	return &orderv1.PayOrderResponse{TransactionUUID: transactionUuid}, nil
 }
 
-//
 // CancelOrder реализует операцию cancelOrder
 // POST /api/v1/orders/{order_uuid}/cancel
-// func (h *OrderHandler) CancelOrder(ctx context.Context, params orderv1.CancelOrderParams) (orderv1.CancelOrderRes, error) {
-//     // 1. Найти заказ в store
-//     // 2. Проверить статус == PENDING_PAYMENT
-//     // 3. Обновить статус на CANCELLED
-//     // 4. Вернуть success
-// }
+func (h *OrderHandler) CancelOrder(_ context.Context, params orderv1.CancelOrderParams) (orderv1.CancelOrderRes, error) {
+	h.store.mu.RLock()
+	order, ok := h.store.orders[params.OrderUUID]
+	if !ok {
+		return nil, errors.New("order not found")
+	}
+	if order.Status != "PENDING_PAYMENT" {
+		return nil, errors.New("order is not in pending payment state")
+	}
+	h.store.mu.RUnlock()
+	h.store.mu.Lock()
+	defer h.store.mu.Unlock()
+	order = h.store.orders[params.OrderUUID]
+	order.Status = "CANCELLED"
+	h.store.orders[order.OrderUUID] = order
+
+	//     // 1. Найти заказ в store
+	//     // 2. Проверить статус == PENDING_PAYMENT
+	//     // 3. Обновить статус на CANCELLED
+	//     // 4. Вернуть success
+	return &orderv1.CancelOrderResponse{}, nil
+}
