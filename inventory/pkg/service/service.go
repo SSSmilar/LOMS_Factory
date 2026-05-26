@@ -14,6 +14,20 @@ import (
 	inventoryv1 "github.com/SSSmilar/LOMS_Factory/shared/pkg/proto/inventory/v1"
 )
 
+type InventoryRepository interface {
+	GetParts(ctx context.Context, uuids []string) ([]Part, error)
+}
+
+type Service struct {
+	inventoryRepository InventoryRepository
+}
+
+func NewService(inventoryRepository InventoryRepository) *Service {
+	return &Service{
+		inventoryRepository: inventoryRepository,
+	}
+}
+
 // Part представляет деталь космического корабля .
 type Part struct {
 	UUID          string
@@ -165,8 +179,8 @@ func (s *InventoryServer) GetPart(
 		)
 		return nil, sb.Err()
 	}
-	part, ok := s.parts[number]
-	if !ok {
+	part, err := s.InventoryService.GetPart(ctx, number)
+	if err != nil {
 		slog.Warn("part not found",
 			slog.String("method", "GetPart"),
 			slog.String("field", "uuid"),
