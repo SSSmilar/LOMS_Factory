@@ -1,70 +1,137 @@
 # LOMS (Logistics Order Management System)
 
-Учебный микросервисный проект: система управления заказами и складскими остатками.
-Делаю с упором на распределенные транзакции, асинхронное взаимодействие и observability.
+Учебный микросервисный проект: система управления заказами на постройку космических кораблей и “складом” деталей.
 
-## Стек
-* **Язык:** Go (1.26.0)
-* **Транспорт:** gRPC (межсервисное), REST (внешнее API), Kafka (события)
-* **Данные:** PostgreSQL, Redis (кэш/локи)
-* **Инфраструктура:** Docker, Nginx (API Gateway)
-* **Observability:** OpenTelemetry, Jaeger (трейсинг), Prometheus + Grafana (метрики)
-* **Тулзы:** Taskfile, golangci-lint, Protobuf
+Фокус:
+- распределённые взаимодействия (HTTP + gRPC),
+- контракт-ориентированная разработка (OpenAPI + Protobuf),
+- базовая observability (в процессе).
+
+## Архитектура (высокоуровнево)
+
 ```mermaid
 flowchart LR
-%% Клиент и API Gateway
     Client((Client))
-    Ngix{"Ngix"}
+    Nginx{"Nginx / API Gateway"}
 
-%% Микросервисы (с указанием используемых БД)
-    IAM["IAM Service<br/>(PostgreSQL, Redis)"]
-    Order["Order Service<br/>(PostgreSQL)"]
-    Payment["Payment Service"]
-    Inventory["Inventory Service<br/>(PostgreSQL)"]
-    Assembly["Assembly Service"]
+    Order["Order Service<br/>(HTTP, OpenAPI)"]
+    Inventory["Inventory Service<br/>(gRPC)"]
+    Payment["Payment Service<br/>(gRPC)"]
 
-%% Брокер сообщений
-    Kafka{{"Kafka"}}
+    Kafka{{"Kafka (planned)"}}
+    Assembly["Assembly Service (planned)"]
+    IAM["IAM Service (planned)"]
 
-%% Роутинг от Ngix
-    Client --> Ngix
-    Ngix -- gRPC --> IAM
-    Ngix -- HTTP --> Order
-    Ngix -- gRPC --> Inventory
-
-%% Внутренние взаимодействия от Order Service
-    Order -- gRPC --> Payment
+    Client --> Nginx
+    Nginx -- HTTP --> Order
     Order -- gRPC --> Inventory
+    Order -- gRPC --> Payment
     Order --> Kafka
-
-%% Взаимодействие через Kafka
     Kafka --> Assembly
+    Nginx -- gRPC --> IAM
 
-%% Инфраструктура мониторинга (изолированный блок, как на схеме)
-    subgraph Observability ["Логирование, метрики, трассировка"]
+    subgraph Observability ["Observability (planned)"]
         direction LR
-        Kibana
         OpenTelemetry
         Prometheus
         Grafana
         Jaeger
     end
 ```
-## Структура (Monorepo)
-* `order/` — оркестратор. Принимает HTTP, дергает другие сервисы по gRPC, пушит ивенты в Kafka.
-* `inventory/` — склад. Резервирование товаров и работа с БД.
-* `payment/` — сервис оплаты (в процессе проектирования).
-* `shared/` — общие либы и контракты:
-    * `proto/` — контракты (protobuf).
-    * `pkg/` — общие хелперы (интерцепторы, логгеры).
-    * `api/` — сгенерированный gRPC-код.
 
-## Текущий статус (WIP)
-- [x] Каркас монорепы, настройка Taskfile и линтеров.
-- [x] Написаны proto-контракты.
-- [ ] Имплементация бизнес-логики `order` и `inventory`.
-- [ ] Прикручивание Kafka.
-- [ ] Настройка `docker-compose` для поднятия всей инфры (БД, Jaeger, Grafana).
+## Репозиторий
 
-## Запуск
-*(Будет добавлено после завершения настройки инфраструктуры)*
+Monorepo с `go.work` и модулями:
+- `order/` — HTTP API (OpenAPI, сгенерировано `ogen`), оркестрация вызовов в `inventory` и `payment`.
+- `inventory/` — gRPC API склада деталей.
+- `payment/` — gRPC API оплаты (учебная заглушка).
+- `shared/` — общие контракты и сгенерированный код:
+  - `shared/api/order/v1/` — OpenAPI спецификация для `order`.
+  - `shared/proto/` — protobuf контракты.
+  - `shared/pkg/openapi/` — сгенерированный `ogen` сервер/типы для `order`.
+  - `shared/pkg/proto/` — сгенерированный protobuf/gRPC код.
+
+## Контракты / API
+
+- **Order Service (HTTP/OpenAPI)**: `shared/api/order/v1/order.openapi.yaml`
+- **Inventory Service (gRPC/Protobuf)**: `shared/proto/inventory/v1/inventory.proto`
+- **Payment Service (gRPC/Protobuf)**: `shared/proto/payment/v1/payment.proto`
+
+## Порты (локально)
+
+- **Order HTTP**: `http://localhost:8080`
+- **Inventory gRPC**: `localhost:50051`
+- **Payment gRPC**: `localhost:50052`
+
+## Требования
+
+- Go **1.26.x** (в `Taskfile.yaml` и `go.work` указан 1.26.0; в корневом `go.mod` — 1.26.2).
+- [`task`](https://taskfile.dev/) (Taskfile runner).
+
+## Быстрый старт (локально)
+
+Установить тулзы (линтеры, генераторы) в `./bin`:
+
+```bash
+task setup
+```
+
+Сгенерировать код из контрактов (protobuf + OpenAPI):
+
+```bash
+task gen
+```
+
+Запустить сервисы (в разных терминалах):
+
+```bash
+go run ./inventory/cmd
+```
+
+```bash
+go run ./payment/cmd
+```
+
+```bash
+go run ./order/cmd
+```
+
+Проверка, что `order` поднялся:
+- `GET http://localhost:8080/api/v1/orders/{order_uuid}` — описано в OpenAPI спецификации.
+
+## Разработка
+
+Основные команды:
+
+```bash
+# форматирование
+task format
+
+# линт Go
+task lint
+
+# линт proto
+task proto:lint
+
+# генерация proto
+task proto:gen
+
+# генерация OpenAPI (ogen)
+task ogen:gen
+
+# тесты API (order/tests)
+task test:api
+```
+
+## Статус (WIP)
+
+- [x] Monorepo + `go.work`, базовая структура модулей.
+- [x] Контракты: OpenAPI (`order`) и Protobuf (`inventory`, `payment`).
+- [x] Генерация кода: `buf` + `ogen`.
+- [x] Базовые тесты: `task test:api`.
+- [ ] Kafka / события (запланировано).
+- [ ] Инфраструктура (docker-compose, БД, observability стэк) — в планах, в репозитории пока не настроено.
+
+## Лицензия
+
+Лицензия в репозитории не указана (файла `LICENSE` нет).
