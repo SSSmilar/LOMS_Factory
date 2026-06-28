@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"sync"
 
 	"github.com/SSSmilar/LOMS_Factory/inventory/pkg/service"
@@ -25,7 +24,6 @@ func (rep *inMemoryRepo) GetPart(ctx context.Context, id string) (service.Part, 
 	defer rep.mtx.RUnlock()
 	part, ok := rep.parts[id]
 	if !ok {
-		slog.Error("part not found")
 		return part, fmt.Errorf("part not found in method GetPart")
 	}
 	return part, nil
@@ -35,7 +33,7 @@ func (rep *inMemoryRepo) GetParts(ctx context.Context, ids []string) ([]service.
 
 	rep.mtx.RLock()
 	defer rep.mtx.RUnlock()
-	
+
 	for _, id := range ids {
 		part, ok := rep.parts[id]
 		if !ok {
