@@ -91,7 +91,7 @@ func (h *OrderHandler) fetchAndValidatePart(
 	if len(resp.GetParts()) == 0 {
 		return nil, &orderv1.CreateOrderNotFound{
 			Code:    http.StatusNotFound,
-			Message: "part not found",
+			Message: msgPartNotFound,
 		}
 	}
 
