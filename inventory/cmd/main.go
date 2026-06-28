@@ -9,12 +9,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/SSSmilar/LOMS_Factory/inventory/pkg/service"
+	"github.com/SSSmilar/LOMS_Factory/inventory/pkg/transport"
+	inventoryv1 "github.com/SSSmilar/LOMS_Factory/shared/pkg/proto/inventory/v1"
 	"google.golang.org/grpc"
 	keepalive "google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 
-	svc "github.com/SSSmilar/LOMS_Factory/inventory/pkg/service"
-	inventoryv1 "github.com/SSSmilar/LOMS_Factory/shared/pkg/proto/inventory/v1"
+	"github.com/SSSmilar/LOMS_Factory/inventory/pkg/repository" // Твоя база
 )
 
 const grpcAddress = ":50051"
@@ -42,11 +44,16 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer(grpc.KeepaliveParams(kasp), grpc.KeepaliveEnforcementPolicy(kaep))
-	inventoryv1.RegisterInventoryServiceServer(grpcServer, svc.NewInventoryServer())
 
+	repo := repository.NewMemoryRepo()
+
+	svc := service.NewService(repo)
 	// Включаем reflection для postman/grpcurl
 	reflection.Register(grpcServer)
 
+	inventoryServer := transport.InventoryServer{InventoryService: svc}
+
+	inventoryv1.RegisterInventoryServiceServer(grpcServer, &inventoryServer)
 	slog.Info("запуск InventoryService", "адрес", grpcAddress)
 
 	quit := make(chan os.Signal, 1)
